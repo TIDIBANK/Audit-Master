@@ -1,0 +1,159 @@
+{
+  "2AD-226-A23": {
+    "code": "2AD-226-A23",
+    "missionName": "Audit bank",
+    "createdBy": "Kouadjo",
+    "createdAt": "2026-02-27T14:28:15.044Z",
+    "lastUpdate": "2026-03-01T22:53:48.373Z",
+    "auditData": {
+      "id": "AUD-1772202501748",
+      "perimeter": {
+        "entite": "Audit bank",
+        "secteur": "Banque ",
+        "regime": "reel_normal",
+        "debut": "2026-02-27",
+        "fin": "2026-03-21",
+        "responsable": "Kouadjo",
+        "objectifs": "S’assurer de la maîtrise et fiabilité des pret bancaires",
+        "capital": "100000000000",
+        "effectif": "1500",
+        "ca": "60000000",
+        "processus": [
+          {
+            "nom": "pret bancaire",
+            "id": 1772203684775.6082
+          },
+          {
+            "nom": "caisse et odre de virement",
+            "id": 1772379980585.0442
+          }
+        ],
+        "normes": [
+          {
+            "nom": "iso 9001",
+            "id": 1772379995667.9404
+          }
+        ],
+        "equipe": [
+          {
+            "nom": "ulrich",
+            "role": "assistant",
+            "email": "ulrich@gmail.com",
+            "id": 1772203635049.8525
+          }
+        ],
+        "orgNodes": [
+          {
+            "nom": "Claudius",
+            "poste": "Dg",
+            "palier": "Direction",
+            "parentId": null,
+            "depth": 0,
+            "id": 1772204445309.2412
+          },
+          {
+            "nom": "Kouakou marie flaure",
+            "poste": "Directrice rh",
+            "palier": "Departement",
+            "parentId": "1772204445309.2412",
+            "depth": 1,
+            "id": 1772391601728.5022
+          },
+          {
+            "nom": "Kone Idriss",
+            "poste": "Directeur finance",
+            "palier": "Departement",
+            "parentId": "1772204445309.2412",
+            "depth": 1,
+            "id": 1772391658433.1868
+          },
+          {
+            "nom": "Memel jean Ignace",
+            "poste": "Directeur moyen generaux",
+            "palier": "Departement",
+            "parentId": "1772204445309.2412",
+            "depth": 1,
+            "id": 1772391755185.4067
+          },
+          {
+            "nom": "Otchoma Cecile",
+            "poste": "Responsable lead trésorerie ",
+            "palier": "Service",
+            "parentId": "1772391658433.1868",
+            "depth": 2,
+            "id": 1772391838594.9824
+          },
+          {
+            "nom": "nzi marc michele",
+            "poste": "responsable contrat",
+            "palier": "Service",
+            "parentId": "1772391601728.5022",
+            "depth": 2,
+            "id": 1772391939932.5503
+          },
+          {
+            "nom": "Soumahoro Ahmed",
+            "poste": "officer paie - caisse",
+            "palier": "Bureau",
+            "parentId": "1772391838594.9824",
+            "depth": 3,
+            "id": 1772392085978.4905
+          }
+        ]
+      },
+      "risks": [
+        {
+          "processus": "pret bancaire",
+          "description": "FALSIFICATION",
+          "probabilite": 3,
+          "impact": 3,
+          "categorie": "conformite",
+          "responsable": "TACHO",
+          "score": 9,
+          "criticite": 2,
+          "id": 1772243168668.1887
+        }
+      ],
+      "swot": {
+        "forces": [
+          {
+            "texte": "ANALYSE MINUTIEUSE",
+            "id": 1772243193064.4841
+          }
+        ],
+        "faiblesses": [
+          {
+            "texte": "MANQUE DE TEMPS CONTROLE",
+            "id": 1772243209366.0742
+          }
+        ],
+        "opportunites": [],
+        "menaces": []
+      },
+      "program": {
+        "checklist": [
+          {
+            "processus": "pret bancaire",
+            "question": "Vérifier signature \n",
+            "reponse": "Voir si conforme",
+            "responsable": "Nzi",
+            "statut": "en_cours",
+            "note": "0",
+            "id": 1772243445193.988
+          }
+        ]
+      },
+      "documents": [],
+      "controls": {
+        "tests": [],
+        "deficiences": []
+      },
+      "report": {
+        "synthese": "",
+        "constats": [],
+        "recommandations": [],
+        "conclusion": ""
+      }
+    }
+  }
+}
