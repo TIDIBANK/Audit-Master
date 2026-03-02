@@ -221,7 +221,7 @@ app.post('/api/mission/:code/change-code', (req, res) => {
 
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
   if (mission.createdBy !== userName) {
-    return res.status(403).json({ error: 'Seul le créateur peut modifier le code d'accès' });
+    return res.status(403).json({ error: "Seul le createur peut modifier le code d'acces" });
   }
   if (!newCode || newCode.trim().length < 6) {
     return res.status(400).json({ error: 'Le nouveau code doit faire au moins 6 caractères' });
