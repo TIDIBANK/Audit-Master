@@ -4,7 +4,7 @@
     "missionName": "Audit bank",
     "createdBy": "Kouadjo",
     "createdAt": "2026-02-27T14:28:15.044Z",
-    "lastUpdate": "2026-03-02T02:43:42.693Z",
+    "lastUpdate": "2026-03-04T05:18:59.751Z",
     "auditData": {
       "id": "AUD-1772202501748",
       "perimeter": {
@@ -39,7 +39,12 @@
             "nom": "ulrich",
             "role": "assistant",
             "email": "ulrich@gmail.com",
-            "id": 1772203635049.8525
+            "id": 1772203635049.8525,
+            "telephone": "0749488095",
+            "heuresPrevues": "72",
+            "heuresReelles": "48",
+            "tauxJournalier": "500",
+            "specialite": "Legal & coorporate"
           }
         ],
         "orgNodes": [
@@ -153,7 +158,296 @@
         "constats": [],
         "recommandations": [],
         "conclusion": ""
-      }
+      },
+      "notes": [],
+      "conversations": {
+        "messages": [
+          {
+            "id": 1772595651210.6257,
+            "auteur": "Ulrich",
+            "contenu": "cool",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T03:40:51.210Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772596447791.963,
+            "auteur": "Ulrich",
+            "contenu": "c noté boss",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T03:54:07.791Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772597321903.7246,
+            "auteur": "Ulrich",
+            "contenu": "hhhhh",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:08:41.903Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772597325018.1086,
+            "auteur": "Kouadjo",
+            "contenu": "hhhhhhh",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:08:45.018Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598260682.735,
+            "auteur": "Ulrich",
+            "contenu": "cava",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:24:20.682Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598277738.8452,
+            "auteur": "Kouadjo",
+            "contenu": "ouiiiiiii cava",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:24:37.738Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598283435.1604,
+            "auteur": "Ulrich",
+            "contenu": "daccord",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:24:43.435Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598292972.862,
+            "auteur": "Ulrich",
+            "contenu": "on test ici",
+            "channel": "general",
+            "date": "2026-03-04T04:24:52.972Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598303296.4807,
+            "auteur": "Kouadjo",
+            "contenu": "dac",
+            "channel": "general",
+            "date": "2026-03-04T04:25:03.296Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598324577.5386,
+            "auteur": "Ulrich",
+            "contenu": "je vois rien",
+            "channel": "general",
+            "date": "2026-03-04T04:25:24.577Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598383475.4177,
+            "auteur": "Kouadjo",
+            "contenu": "qqqqqqqqq",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:26:23.475Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598390743.492,
+            "auteur": "Ulrich",
+            "contenu": "qqqqq",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:26:30.743Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598685745.242,
+            "auteur": "Kouadjo",
+            "contenu": "je vois rien",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:31:25.745Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772598697234.729,
+            "auteur": "Ulrich",
+            "contenu": "haaaaaa",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:31:37.234Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772599262592.2292,
+            "auteur": "Ulrich",
+            "contenu": "sava",
+            "channel": "general",
+            "date": "2026-03-04T04:41:02.592Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772599276963.8872,
+            "auteur": "Kouadjo",
+            "contenu": "okkkk",
+            "channel": "general",
+            "date": "2026-03-04T04:41:16.963Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772599598171.5205,
+            "auteur": "Ulrich",
+            "contenu": "ca foonctionne pour le generale",
+            "channel": "general",
+            "date": "2026-03-04T04:46:38.171Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772599611274.4653,
+            "auteur": "Kouadjo",
+            "contenu": "Bien ok alors",
+            "channel": "general",
+            "date": "2026-03-04T04:46:51.274Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772599647782.5588,
+            "auteur": "Kouadjo",
+            "contenu": "ici",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:47:27.782Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772600063749.8025,
+            "auteur": "Ulrich",
+            "contenu": "test",
+            "channel": "Kouadjo",
+            "date": "2026-03-04T04:54:23.749Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772600082402.3289,
+            "auteur": "Kouadjo",
+            "contenu": "Bien ca marche on va ajouter un 3ieme",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:54:42.402Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772600114502.2205,
+            "auteur": "Kouadjo",
+            "contenu": "les audits sont en cours",
+            "channel": "general",
+            "date": "2026-03-04T04:55:14.502Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772600124486.474,
+            "auteur": "Kouadjo",
+            "contenu": "ok",
+            "channel": "general",
+            "date": "2026-03-04T04:55:24.486Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772600138514.5093,
+            "auteur": "Kouadjo",
+            "contenu": "d'accord !",
+            "channel": "Ulrich",
+            "date": "2026-03-04T04:55:38.514Z",
+            "missionCode": "2AD-226-A23"
+          }
+        ]
+      },
+      "connectionLogs": [
+        {
+          "userName": "Audit bank",
+          "join": "2026-03-04T03:08:12.151Z",
+          "leave": "2026-03-04T03:10:54.287Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:11:15.407Z",
+          "leave": "2026-03-04T04:02:34.777Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:26:06.340Z",
+          "leave": "2026-03-04T03:28:42.670Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:29:06.647Z",
+          "leave": "2026-03-04T03:32:59.034Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:39:19.846Z",
+          "leave": "2026-03-04T03:40:36.364Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:40:36.837Z",
+          "leave": "2026-03-04T03:42:01.874Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:42:23.280Z",
+          "leave": "2026-03-04T03:44:46.689Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:44:47.168Z",
+          "leave": "2026-03-04T03:54:21.645Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T03:54:22.134Z",
+          "leave": "2026-03-04T03:58:27.737Z"
+        },
+        {
+          "userName": "Ulrich",
+          "join": "2026-03-04T03:58:15.133Z",
+          "leave": "2026-03-04T04:02:34.284Z"
+        },
+        {
+          "userName": "Ulrich",
+          "join": "2026-03-04T04:02:34.609Z",
+          "leave": "2026-03-04T04:02:49.901Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T04:02:35.100Z",
+          "leave": "2026-03-04T04:02:50.895Z"
+        },
+        {
+          "userName": "Ulrich",
+          "join": "2026-03-04T04:02:50.224Z",
+          "leave": "2026-03-04T04:11:59.439Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T04:02:51.206Z",
+          "leave": "2026-03-04T04:11:56.449Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T04:32:01.785Z",
+          "leave": null
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T04:32:23.584Z",
+          "leave": "2026-03-04T04:39:39.502Z"
+        },
+        {
+          "userName": "Ulrich",
+          "join": "2026-03-04T04:37:51.312Z",
+          "leave": "2026-03-04T04:39:42.418Z"
+        },
+        {
+          "userName": "Kouadjo",
+          "join": "2026-03-04T04:39:40.058Z",
+          "leave": null
+        }
+      ]
     }
   }
 }

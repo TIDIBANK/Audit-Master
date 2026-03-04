@@ -147,7 +147,10 @@ app.post('/api/mission/create', (req, res) => {
       risks:[], swot:{ forces:[], faiblesses:[], opportunites:[], menaces:[] },
       program:{ checklist:[] }, documents:[],
       controls:{ tests:[], deficiences:[] },
-      report:{ synthese:'', constats:[], recommandations:[], conclusion:'' }
+      report:{ synthese:'', constats:[], recommandations:[], conclusion:'' },
+      conversations:{ messages:[] },
+      // journal des connexions locales (utile pour rapports)
+      connectionLogs: []
     }
   };
   saveMissions(missions);
@@ -168,6 +171,13 @@ app.post('/api/mission/verify', (req, res) => {
 app.get('/api/mission/:code', (req, res) => {
   const mission = missions[req.params.code];
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
+  // ensure every saved message has a channel (migrating old data)
+  if (mission.auditData && mission.auditData.conversations && Array.isArray(mission.auditData.conversations.messages)) {
+    mission.auditData.conversations.messages = mission.auditData.conversations.messages.map(m => {
+      if (!m.channel) m.channel = 'general';
+      return m;
+    });
+  }
   res.json({
     success: true,
     auditData: mission.auditData,
@@ -284,6 +294,42 @@ app.post('/api/upload', upload.array('files', 20), (req, res) => {
   res.json({ success: true, files });
 });
 
+// ─── RAPPORT DE CONNEXIONS ─────────────────────────────────
+app.get('/api/mission/:code/logs', (req, res) => {
+  const mission = missions[req.params.code];
+  if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
+  const logs = mission.auditData.connectionLogs || [];
+  const format = req.query.format || 'csv';
+  if (format === 'json') {
+    // enrich with durations and human text
+    const enriched = logs.map(l => {
+      const join = new Date(l.join);
+      const leave = l.leave ? new Date(l.leave) : new Date();
+      const durSec = Math.round((leave - join) / 1000);
+      let text = '';
+      const hrs = Math.floor(durSec / 3600);
+      const mins = Math.floor((durSec % 3600) / 60);
+      const days = Math.floor(hrs / 24);
+      if (days) text += days + 'j ';
+      if (hrs % 24) text += (hrs % 24) + 'h ';
+      if (mins) text += mins + 'm';
+      if (!text) text = durSec + 's';
+      return { userName: l.userName, join: l.join, leave: l.leave, durationSeconds: durSec, durationText: text.trim() };
+    });
+    return res.json({ logs: enriched });
+  }
+  // csv/text
+  const lines = ['userName,join,leave,durationSeconds'];
+  logs.forEach(l => {
+    const join = new Date(l.join);
+    const leave = l.leave ? new Date(l.leave) : new Date();
+    const dur = Math.round((leave - join) / 1000);
+    lines.push(`${l.userName},${l.join},${l.leave || ''},${dur}`);
+  });
+  res.setHeader('Content-Type', 'text/csv');
+  res.send(lines.join('\n'));
+});
+
 // ─── SPA FALLBACK (pour le build Vite) ───────────────────────
 app.get('*', (req, res) => {
   const indexHtml = path.join(BUILD_DIR, 'index.html');
@@ -300,6 +346,17 @@ io.on('connection', (socket) => {
   socket.on('join', ({ missionCode, userName, isCreator }) => {
     socket.join(missionCode);
     connectedUsers[socket.id] = { userName, missionCode, isCreator: !!isCreator };
+
+    // ajouter une entrée dans le journal de connexions
+    if (missions[missionCode] && missions[missionCode].auditData) {
+      if (!missions[missionCode].auditData.connectionLogs) {
+        missions[missionCode].auditData.connectionLogs = [];
+      }
+      missions[missionCode].auditData.connectionLogs.push({ userName, join: new Date().toISOString(), leave: null });
+      missions[missionCode].lastUpdate = new Date().toISOString();
+      saveMissions(missions);
+    }
+
     const users = getUsersInMission(missionCode);
     // Notifier tout le monde dans la mission
     io.to(missionCode).emit('users-update', users);
@@ -338,10 +395,89 @@ io.on('connection', (socket) => {
     console.log(`[SAUVEGARDE] Mission ${missionCode} par ${userName}`);
   });
 
+  // Chat temps réel
+  socket.on('chat-send', (msg, ack) => {
+    if (!msg || !msg.missionCode) {
+      if (ack) ack({ success: false, error: 'Message invalide' });
+      return;
+    }
+    // make sure there is always a channel (old clients might not send one)
+    if (!msg.channel) msg.channel = 'general';
+    // Assurer un ID unique pour chaque message
+    if (!msg.id) msg.id = Date.now() + Math.random();
+    
+    // Sauvegarder le message dans auditData si ce n'est pas un doublon
+    if (missions[msg.missionCode] && missions[msg.missionCode].auditData) {
+      if (!missions[msg.missionCode].auditData.conversations) {
+        missions[msg.missionCode].auditData.conversations = { messages: [] };
+      }
+      const msgs = missions[msg.missionCode].auditData.conversations.messages;
+      if (!msgs.some(m => m.id === msg.id)) {
+        msgs.push(msg);
+        missions[msg.missionCode].lastUpdate = new Date().toISOString();
+        saveMissions(missions);
+      } else {
+        console.log(`[CHAT] Duplicate message ${msg.id} ignored`);
+      }
+    }
+    // Broadcast à TOUS les membres de la mission (y compris l'émetteur)
+    io.to(msg.missionCode).emit('chat-message', msg);
+    const rooms = [...socket.rooms];
+    console.log(`[CHAT] ${msg.auteur} → canal:${msg.channel} mission:${msg.missionCode} rooms:[${rooms.join(',')}]`);
+    if (ack) ack({ success: true });
+  });
+
+  // Suppression d'un message
+  socket.on('chat-delete', (data, ack) => {
+    const { missionCode, messageId } = data;
+    if (!missionCode || !messageId) {
+      if (ack) ack({ success: false, error: 'Données invalides' });
+      return;
+    }
+    // Supprimer du serveur
+    if (missions[missionCode] && missions[missionCode].auditData && missions[missionCode].auditData.conversations) {
+      const messages = missions[missionCode].auditData.conversations.messages;
+      const idx = messages.findIndex(m => m.id === messageId);
+      if (idx >= 0) {
+        messages.splice(idx, 1);
+        missions[missionCode].lastUpdate = new Date().toISOString();
+        saveMissions(missions);
+        // Notifier tous les connectés
+        io.to(missionCode).emit('chat-deleted', { messageId });
+        console.log(`[CHAT DELETE] Message ${messageId} supprimé`);
+      }
+    }
+    if (ack) ack({ success: true });
+  });
+
+  // Typing indicator
+  socket.on('chat-typing', (data) => {
+    let { missionCode, channel, userName, isTyping } = data;
+    console.log('[SERVER chat-typing]', data);
+    channel = channel || 'general';
+    // Envoyer à TOUS dans la mission SAUF l'émetteur
+    console.log('[SERVER emit user-typing] broadcast to room:', missionCode, 'data:', { channel, userName, isTyping });
+    socket.to(missionCode).emit('user-typing', { channel, userName, isTyping });
+  });
   // Déconnexion
   socket.on('disconnect', () => {
     const user = connectedUsers[socket.id];
     if (user) {
+      // enregistrer le départ dans le journal
+      const code = user.missionCode;
+      if (missions[code] && missions[code].auditData && Array.isArray(missions[code].auditData.connectionLogs)) {
+        // chercher la dernière entrée sans leave pour cet utilisateur
+        for (let i = missions[code].auditData.connectionLogs.length - 1; i >= 0; i--) {
+          const entry = missions[code].auditData.connectionLogs[i];
+          if (entry.userName === user.userName && !entry.leave) {
+            entry.leave = new Date().toISOString();
+            break;
+          }
+        }
+        missions[code].lastUpdate = new Date().toISOString();
+        saveMissions(missions);
+      }
+
       delete connectedUsers[socket.id];
       const users = getUsersInMission(user.missionCode);
       io.to(user.missionCode).emit('users-update', users);
