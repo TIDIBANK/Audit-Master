@@ -1,0 +1,34 @@
+[
+  {
+    "code": "AUDIT-2025-MASTER-PRO",
+    "client": "Licence Pro",
+    "maxUses": 999,
+    "uses": 8,
+    "actif": true,
+    "createdAt": "2026-03-05T18:30:16.923Z"
+  },
+  {
+    "code": "AUDIT-2025-DEMO-001",
+    "client": "Demo",
+    "maxUses": 5,
+    "uses": 0,
+    "actif": true,
+    "createdAt": "2026-03-05T18:30:16.923Z"
+  },
+  {
+    "code": "AUDIT-CABINET-ALPHA",
+    "client": "Cabinet Alpha",
+    "maxUses": 50,
+    "uses": 0,
+    "actif": true,
+    "createdAt": "2026-03-05T18:30:16.923Z"
+  },
+  {
+    "code": "AUDIT-CABINET-BETA",
+    "client": "Cabinet Beta",
+    "maxUses": 50,
+    "uses": 0,
+    "actif": true,
+    "createdAt": "2026-03-05T18:30:16.923Z"
+  }
+]

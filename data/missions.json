@@ -4,7 +4,7 @@
     "missionName": "Audit bank",
     "createdBy": "Kouadjo",
     "createdAt": "2026-02-27T14:28:15.044Z",
-    "lastUpdate": "2026-03-04T05:18:59.751Z",
+    "lastUpdate": "2026-03-06T04:04:39.955Z",
     "auditData": {
       "id": "AUD-1772202501748",
       "perimeter": {
@@ -45,6 +45,18 @@
             "heuresReelles": "48",
             "tauxJournalier": "500",
             "specialite": "Legal & coorporate"
+          },
+          {
+            "nom": "thierry kouadjo",
+            "role": "Chef de mission",
+            "email": "thierryk.kouassi@gmail.com",
+            "telephone": "0748642902",
+            "heuresPrevues": "100",
+            "heuresReelles": "0",
+            "tauxJournalier": "1000",
+            "disponibilite": "plein_temps",
+            "specialite": "Finances",
+            "id": 1772763453706.8486
           }
         ],
         "orgNodes": [
@@ -104,7 +116,8 @@
             "depth": 3,
             "id": 1772392085978.4905
           }
-        ]
+        ],
+        "devise": "XOF"
       },
       "risks": [
         {
@@ -163,195 +176,35 @@
       "conversations": {
         "messages": [
           {
-            "id": 1772595651210.6257,
+            "id": 1772758664287.3213,
             "auteur": "Ulrich",
+            "contenu": "hello",
+            "channel": "Kouadjo",
+            "date": "2026-03-06T00:57:44.287Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772767062119.6658,
+            "auteur": "thierryk.kouassi",
+            "contenu": "hiii",
+            "channel": "Ulrich",
+            "date": "2026-03-06T03:17:42.119Z",
+            "missionCode": "2AD-226-A23"
+          },
+          {
+            "id": 1772767203961.0996,
+            "auteur": "Kouadjo",
             "contenu": "cool",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T03:40:51.210Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772596447791.963,
-            "auteur": "Ulrich",
-            "contenu": "c noté boss",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T03:54:07.791Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772597321903.7246,
-            "auteur": "Ulrich",
-            "contenu": "hhhhh",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T04:08:41.903Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772597325018.1086,
-            "auteur": "Kouadjo",
-            "contenu": "hhhhhhh",
             "channel": "Ulrich",
-            "date": "2026-03-04T04:08:45.018Z",
+            "date": "2026-03-06T03:20:03.961Z",
             "missionCode": "2AD-226-A23"
           },
           {
-            "id": 1772598260682.735,
+            "id": 1772767216980.1562,
             "auteur": "Ulrich",
-            "contenu": "cava",
+            "contenu": "excellent",
             "channel": "Kouadjo",
-            "date": "2026-03-04T04:24:20.682Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598277738.8452,
-            "auteur": "Kouadjo",
-            "contenu": "ouiiiiiii cava",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:24:37.738Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598283435.1604,
-            "auteur": "Ulrich",
-            "contenu": "daccord",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T04:24:43.435Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598292972.862,
-            "auteur": "Ulrich",
-            "contenu": "on test ici",
-            "channel": "general",
-            "date": "2026-03-04T04:24:52.972Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598303296.4807,
-            "auteur": "Kouadjo",
-            "contenu": "dac",
-            "channel": "general",
-            "date": "2026-03-04T04:25:03.296Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598324577.5386,
-            "auteur": "Ulrich",
-            "contenu": "je vois rien",
-            "channel": "general",
-            "date": "2026-03-04T04:25:24.577Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598383475.4177,
-            "auteur": "Kouadjo",
-            "contenu": "qqqqqqqqq",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:26:23.475Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598390743.492,
-            "auteur": "Ulrich",
-            "contenu": "qqqqq",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T04:26:30.743Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598685745.242,
-            "auteur": "Kouadjo",
-            "contenu": "je vois rien",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:31:25.745Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772598697234.729,
-            "auteur": "Ulrich",
-            "contenu": "haaaaaa",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T04:31:37.234Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772599262592.2292,
-            "auteur": "Ulrich",
-            "contenu": "sava",
-            "channel": "general",
-            "date": "2026-03-04T04:41:02.592Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772599276963.8872,
-            "auteur": "Kouadjo",
-            "contenu": "okkkk",
-            "channel": "general",
-            "date": "2026-03-04T04:41:16.963Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772599598171.5205,
-            "auteur": "Ulrich",
-            "contenu": "ca foonctionne pour le generale",
-            "channel": "general",
-            "date": "2026-03-04T04:46:38.171Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772599611274.4653,
-            "auteur": "Kouadjo",
-            "contenu": "Bien ok alors",
-            "channel": "general",
-            "date": "2026-03-04T04:46:51.274Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772599647782.5588,
-            "auteur": "Kouadjo",
-            "contenu": "ici",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:47:27.782Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772600063749.8025,
-            "auteur": "Ulrich",
-            "contenu": "test",
-            "channel": "Kouadjo",
-            "date": "2026-03-04T04:54:23.749Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772600082402.3289,
-            "auteur": "Kouadjo",
-            "contenu": "Bien ca marche on va ajouter un 3ieme",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:54:42.402Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772600114502.2205,
-            "auteur": "Kouadjo",
-            "contenu": "les audits sont en cours",
-            "channel": "general",
-            "date": "2026-03-04T04:55:14.502Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772600124486.474,
-            "auteur": "Kouadjo",
-            "contenu": "ok",
-            "channel": "general",
-            "date": "2026-03-04T04:55:24.486Z",
-            "missionCode": "2AD-226-A23"
-          },
-          {
-            "id": 1772600138514.5093,
-            "auteur": "Kouadjo",
-            "contenu": "d'accord !",
-            "channel": "Ulrich",
-            "date": "2026-03-04T04:55:38.514Z",
+            "date": "2026-03-06T03:20:16.980Z",
             "missionCode": "2AD-226-A23"
           }
         ]
@@ -430,7 +283,7 @@
         {
           "userName": "Kouadjo",
           "join": "2026-03-04T04:32:01.785Z",
-          "leave": null
+          "leave": "2026-03-06T01:00:46.037Z"
         },
         {
           "userName": "Kouadjo",
@@ -445,9 +298,94 @@
         {
           "userName": "Kouadjo",
           "join": "2026-03-04T04:39:40.058Z",
+          "leave": "2026-03-06T00:08:40.647Z"
+        },
+        {
+          "userName": "Ulrich",
+          "join": "2026-03-04T05:25:56.800Z",
+          "leave": "2026-03-04T05:26:49.147Z"
+        },
+        {
+          "userName": "Sery",
+          "join": "2026-03-04T05:26:36.106Z",
           "leave": null
+        },
+        {
+          "userName": "Kouadjo",
+          "userEmail": "thierryk.kouassi@gmail.com",
+          "isCreator": true,
+          "join": "2026-03-06T00:08:40.958Z",
+          "leave": "2026-03-06T00:08:44.818Z"
+        },
+        {
+          "userName": "Ulrich",
+          "userEmail": "ulrich@gmail.com",
+          "isCreator": false,
+          "join": "2026-03-06T00:08:47.704Z",
+          "leave": "2026-03-06T00:09:00.029Z"
+        },
+        {
+          "userName": "Ulrich",
+          "userEmail": "ulrich@gmail.com",
+          "isCreator": false,
+          "join": "2026-03-06T00:09:00.294Z",
+          "leave": "2026-03-06T01:00:42.633Z"
         }
       ]
+    },
+    "createdByEmail": "thierryk.kouassi@gmail.com"
+  },
+  "2AD-229-A50": {
+    "code": "2AD-229-A50",
+    "missionName": "Audit usine",
+    "createdBy": "thierryk.kouassi",
+    "createdByEmail": "thierryk.kouassi@gmail.com",
+    "createdAt": "2026-03-06T02:57:03.145Z",
+    "lastUpdate": "2026-03-06T03:08:39.309Z",
+    "auditData": {
+      "id": "AUD-1772765858984",
+      "perimeter": {
+        "entite": "Audit usine",
+        "secteur": "",
+        "regime": "",
+        "debut": "",
+        "fin": "",
+        "responsable": "thierryk.kouassi",
+        "objectifs": "",
+        "capital": "",
+        "effectif": "",
+        "ca": "",
+        "devise": "EUR",
+        "processus": [],
+        "normes": [],
+        "equipe": [],
+        "orgNodes": []
+      },
+      "risks": [],
+      "swot": {
+        "forces": [],
+        "faiblesses": [],
+        "opportunites": [],
+        "menaces": []
+      },
+      "program": {
+        "checklist": []
+      },
+      "documents": [],
+      "controls": {
+        "tests": [],
+        "deficiences": []
+      },
+      "report": {
+        "synthese": "",
+        "constats": [],
+        "recommandations": [],
+        "conclusion": ""
+      },
+      "notes": [],
+      "conversations": {
+        "messages": []
+      }
     }
   }
 }

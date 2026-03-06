@@ -10,37 +10,132 @@ const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*', methods: ['GET','POST','DELETE','PUT'] } });
 
-app.use(cors());
+// CORS — accepte localhost + tout réseau local (192.168.x, 10.x, 172.16-31.x)
+function isLocalOrigin(origin) {
+  if (!origin) return true; // requête directe (ex: Postman, curl)
+  try {
+    const host = new URL(origin).hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    // Plages IP privées RFC-1918
+    if (/^192\.168\./.test(host)) return true;
+    if (/^10\./.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+    return false;
+  } catch { return false; }
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (isLocalOrigin(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET','POST','DELETE','PUT','PATCH'],
+  credentials: true,
+  allowedHeaders: ['Content-Type']
+};
+
+const io = new Server(server, { cors: corsOptions });
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 
 // ─── DOSSIERS ─────────────────────────────────────────────────
 const DATA_DIR    = path.join(__dirname, 'data');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const BUILD_DIR   = path.join(__dirname, 'dist');   // npm run build → dist/
+// directory contenant le build frontend. Par défaut 'dist' dans le serveur, mais pendant dev
+// on peut construire dans ../audit/dist et le serveur prendra automatiquement cette version.
+let BUILD_DIR   = path.join(__dirname, 'dist');
+const altBuild = path.join(__dirname, '..', 'audit', 'dist');
+// Préférer la version construite dans ../audit/dist si elle existe (utile en développement)
+if (fs.existsSync(altBuild)) {
+  BUILD_DIR = altBuild;
+}
 const MISSIONS_FILE = path.join(DATA_DIR, 'missions.json');
+const USERS_FILE    = path.join(DATA_DIR, 'users.json');
+const LICENSES_FILE = path.join(DATA_DIR, 'licenses.json');
 
 [DATA_DIR, UPLOADS_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// ─── SERVIR LE BUILD VITE (après npm run build) ───────────────
+// ─── SERVIR LE BUILD VITE ──────────────────────────────────────
 if (fs.existsSync(BUILD_DIR)) {
   app.use(express.static(BUILD_DIR));
-  console.log('[BUILD] Serveur le build Vite depuis /dist');
+  console.log('[BUILD] Servir le build Vite depuis', BUILD_DIR);
 }
 
-// ─── PERSISTENCE ──────────────────────────────────────────────
-function loadMissions() {
-  try { return JSON.parse(fs.readFileSync(MISSIONS_FILE, 'utf8')); }
-  catch { return {}; }
+// ─── PERSISTENCE JSON ─────────────────────────────────────────
+function loadJSON(file, def) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return def; }
 }
-function saveMissions(data) {
-  fs.writeFileSync(MISSIONS_FILE, JSON.stringify(data, null, 2));
+function saveJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
-let missions = loadMissions();
-let connectedUsers = {}; // { socketId: { userName, missionCode, isCreator } }
+let missions = loadJSON(MISSIONS_FILE, {});
+let connectedUsers = {};
+
+// ─── UTILISATEURS AUDITEURS (base de données fichier) ─────────
+// Format: [ { email, nom, role, type:'Createur'|'Auditeur'|'Admin', actif, missions:[], createdAt } ]
+function loadUsers() { return loadJSON(USERS_FILE, []); }
+function saveUsers(u) { saveJSON(USERS_FILE, u); }
+
+// Enregistrer ou mettre a jour un utilisateur automatiquement
+function upsertUser(email, nom, type) {
+  const users = loadUsers();
+  const emailLow = email.toLowerCase().trim();
+  const existing = users.find(u => u.email.toLowerCase() === emailLow);
+  if (existing) {
+    if (!existing.nom && nom) existing.nom = nom;
+    // Normaliser role/type pour coherence
+    const currentType = (existing.type || existing.role || 'Auditeur').toLowerCase();
+    const isAlreadyCreator = currentType === 'createur' || currentType === 'créateur' || currentType === 'admin';
+    if (!isAlreadyCreator && type) { existing.type = type; existing.role = type; }
+    // S'assurer que les deux champs existent
+    if (!existing.type) existing.type = existing.role || 'Auditeur';
+    if (!existing.role) existing.role = existing.type || 'Auditeur';
+    existing.lastSeen = new Date().toISOString();
+    saveUsers(users);
+    return existing;
+  } else {
+    const newUser = { email: emailLow, nom: nom||emailLow.split('@')[0], type: type||'Auditeur', role: type||'Auditeur', actif: true, missions: [], createdAt: new Date().toISOString() };
+    users.push(newUser);
+    saveUsers(users);
+    console.log('[USER AUTO-INSCRIT] ' + emailLow + ' type=' + (type||'Auditeur'));
+    return newUser;
+  }
+}
+
+// Initialiser avec un exemple si vide
+if (!fs.existsSync(USERS_FILE)) {
+  saveUsers([
+    { email: 'admin@auditmaster.dev', nom: 'Administrateur', type: 'Admin', role: 'Admin', actif: true, missions: [], createdAt: new Date().toISOString() }
+  ]);
+  console.log('[INIT] Fichier users.json cree');
+}
+
+// ─── LICENCES DÉVELOPPEUR (base de données fichier) ───────────
+// Format: [ { code, client, maxUses, uses, actif, createdAt } ]
+function loadLicenses() { return loadJSON(LICENSES_FILE, []); }
+function saveLicenses(l) { saveJSON(LICENSES_FILE, l); }
+
+// ─── MISSIONS (persistence) ────────────────────────────────────
+function saveMissions(m) { saveJSON(MISSIONS_FILE, m); }
+
+// Initialiser avec des licences exemples si vide
+if (!fs.existsSync(LICENSES_FILE)) {
+  saveLicenses([
+    { code: 'AUDIT-2025-MASTER-PRO', client: 'Licence Pro',    maxUses: 999, uses: 0, actif: true, createdAt: new Date().toISOString() },
+    { code: 'AUDIT-2025-DEMO-001',   client: 'Demo',           maxUses: 5,   uses: 0, actif: true, createdAt: new Date().toISOString() },
+    { code: 'AUDIT-CABINET-ALPHA',   client: 'Cabinet Alpha',  maxUses: 50,  uses: 0, actif: true, createdAt: new Date().toISOString() },
+    { code: 'AUDIT-CABINET-BETA',    client: 'Cabinet Beta',   maxUses: 50,  uses: 0, actif: true, createdAt: new Date().toISOString() },
+  ]);
+  console.log('[INIT] Fichier licenses.json cree avec licences exemples');
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function getLocalIP() {
@@ -64,70 +159,163 @@ function generateCode() {
 }
 
 function getUsersInMission(missionCode) {
+  const users = loadUsers();
   return Object.values(connectedUsers)
     .filter(u => u.missionCode === missionCode)
-    .map(u => ({ name: u.userName, isCreator: u.isCreator }));
+    .map(u => {
+      const dbUser = users.find(x => x.email && x.email.toLowerCase() === (u.userEmail||'').toLowerCase());
+      const role = dbUser ? (dbUser.role || dbUser.type || 'Auditeur') : (u.isCreator ? 'Créateur' : 'Auditeur');
+      return { name: u.userName, email: u.userEmail||'', isCreator: u.isCreator, role };
+    });
 }
 
-// ─── PAGE D'ACCUEIL (mode dev sans build) ────────────────────
+// ─── PAGE D'ACCUEIL ───────────────────────────────────────────
 app.get('/', (req, res) => {
-  // Si build Vite existe, on sert index.html
   const indexHtml = path.join(BUILD_DIR, 'index.html');
-  if (fs.existsSync(indexHtml)) {
-    return res.sendFile(indexHtml);
-  }
-  // Sinon, page de statut dev
+  if (fs.existsSync(indexHtml)) return res.sendFile(indexHtml);
   const ip = getLocalIP();
   const total = Object.keys(missions).length;
+  const users = loadUsers();
+  const licenses = loadLicenses();
+  const PORT = process.env.PORT || 3001;
   res.send(`<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AUDIT MASTER - Serveur</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,sans-serif;background:#070b14;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}
-    .wrap{max-width:500px;width:90%;padding:24px 0}
-    h1{font-size:26px;font-weight:900;color:#0ea5e9;margin-bottom:4px}
-    .sub{color:#64748b;font-size:13px;margin-bottom:28px}
-    .card{background:#111827;border:1px solid #1f2d45;border-radius:14px;padding:24px;margin-bottom:14px}
-    .badge{display:inline-flex;align-items:center;gap:6px;background:#10b98120;color:#10b981;border:1px solid #10b98140;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600}
-    .dot{width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse 1.5s infinite}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-    .row{display:flex;justify-content:space-between;margin-bottom:7px;font-size:13px}
-    .row span{color:#64748b}
-    code{font-family:monospace;color:#0ea5e9;background:#0ea5e915;padding:1px 7px;border-radius:4px}
-    .tip{background:#f59e0b15;border:1px solid #f59e0b40;border-radius:10px;padding:14px;font-size:12px;color:#f59e0b;margin-top:14px}
-    .tip strong{display:block;margin-bottom:6px;font-size:13px}
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <h1>⚖️ AUDIT MASTER</h1>
-  <div class="sub">Serveur API actif · <span class="badge"><span class="dot"></span>${total} mission(s)</span></div>
-  <div class="card">
-    <div class="row"><span>Adresse locale</span><code>localhost:${process.env.PORT||3001}</code></div>
-    <div class="row"><span>Adresse reseau</span><code>${ip}:${process.env.PORT||3001}</code></div>
-    <div class="row"><span>Missions enregistrees</span><code>${total}</code></div>
-    <div class="row"><span>Statut build</span><code>${fs.existsSync(BUILD_DIR)?'dist/ present — build OK':'dist/ absent — mode dev'}</code></div>
-  </div>
-  <div class="tip">
-    <strong>Pour deployer l'application sur ce serveur :</strong>
-    1. Dans le dossier frontend : <code>npm run build</code><br>
-    2. Copier le dossier <code>dist/</code> dans le dossier server/<br>
-    3. Redemarrer le serveur<br>
-    4. Partager <code>http://${ip}:${process.env.PORT||3001}</code> avec vos collegues
-  </div>
+<html lang="fr"><head><meta charset="UTF-8"><title>AUDIT MASTER - Serveur</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;background:#070b14;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}.wrap{max-width:600px;width:90%;padding:24px 0}h1{font-size:26px;font-weight:900;color:#0ea5e9;margin-bottom:4px}.sub{color:#64748b;font-size:13px;margin-bottom:28px}.card{background:#111827;border:1px solid #1f2d45;border-radius:14px;padding:24px;margin-bottom:14px}.row{display:flex;justify-content:space-between;margin-bottom:7px;font-size:13px}.row span{color:#64748b}code{font-family:monospace;color:#0ea5e9;background:#0ea5e915;padding:1px 7px;border-radius:4px}.badge{display:inline-flex;align-items:center;gap:6px;background:#10b98120;color:#10b981;border:1px solid #10b98140;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600}</style>
+</head><body><div class="wrap">
+<h1>⚖️ AUDIT MASTER</h1>
+<div class="sub">Serveur API actif &nbsp; <span class="badge">${total} mission(s)</span> <span class="badge" style="background:#a78bfa20;color:#a78bfa;border-color:#a78bfa40">${users.length} auditeurs</span> <span class="badge" style="background:#f59e0b20;color:#f59e0b;border-color:#f59e0b40">${licenses.length} licences</span></div>
+<div class="card">
+  <div class="row"><span>Local</span><code>localhost:${PORT}</code></div>
+  <div class="row"><span>Reseau</span><code>${ip}:${PORT}</code></div>
+  <div class="row"><span>Missions</span><code>${total}</code></div>
+  <div class="row"><span>Auditeurs inscrits</span><code>${users.length} (data/users.json)</code></div>
+  <div class="row"><span>Licences actives</span><code>${licenses.filter(l=>l.actif).length} (data/licenses.json)</code></div>
 </div>
-</body>
-</html>`);
+<div class="card" style="background:#f59e0b10;border-color:#f59e0b30;font-size:12px;color:#f59e0b;line-height:1.8">
+  <strong>Gestion des acces :</strong><br>
+  Auditeurs : editez <code>data/users.json</code><br>
+  Licences : editez <code>data/licenses.json</code><br>
+  Redemarrer le serveur apres modification des fichiers
+</div>
+</div></body></html>`);
 });
 
-// ─── API : CREER UNE MISSION ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// API LICENCES
+// ═══════════════════════════════════════════════════════════════
+
+// Verifier une licence
+app.post('/api/license/verify', (req, res) => {
+  const { licenseCode } = req.body;
+  if (!licenseCode) return res.status(400).json({ valid: false, error: 'Code requis' });
+  const licenses = loadLicenses();
+  const lic = licenses.find(l => l.code.toUpperCase() === licenseCode.trim().toUpperCase() && l.actif);
+  if (!lic) return res.json({ valid: false, error: 'Code de licence invalide ou inactif' });
+  if (lic.uses >= lic.maxUses) return res.json({ valid: false, error: 'Ce code a atteint sa limite d\'utilisation (' + lic.maxUses + ')' });
+  console.log('[LICENCE OK] ' + licenseCode + ' — ' + lic.client + ' (' + (lic.uses+1) + '/' + lic.maxUses + ')');
+  res.json({ valid: true, client: lic.client });
+});
+
+// Lister les licences (admin)
+app.get('/api/licenses', (req, res) => {
+  res.json({ licenses: loadLicenses() });
+});
+
+// Ajouter une licence
+app.post('/api/licenses', (req, res) => {
+  const { code, client, maxUses } = req.body;
+  if (!code || !client) return res.status(400).json({ error: 'code et client requis' });
+  const licenses = loadLicenses();
+  if (licenses.find(l => l.code.toUpperCase() === code.toUpperCase())) return res.status(400).json({ error: 'Code deja existant' });
+  licenses.push({ code: code.toUpperCase(), client, maxUses: maxUses||50, uses: 0, actif: true, createdAt: new Date().toISOString() });
+  saveLicenses(licenses);
+  res.json({ success: true });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// API UTILISATEURS AUDITEURS
+// ═══════════════════════════════════════════════════════════════
+
+// Lister les auditeurs
+app.get('/api/users', (req, res) => {
+  const users = loadUsers();
+  // Enrichir avec les missions associees
+  const enriched = users.map(u => ({
+    ...u,
+    missionsCreees: Object.values(missions).filter(m => (m.createdByEmail||'').toLowerCase() === u.email.toLowerCase()).map(m => ({ code: m.code, name: m.missionName, createdAt: m.createdAt })),
+    missionsMembre: Object.values(missions).filter(m => (m.auditData?.perimeter?.equipe||[]).some(mb => (mb.email||'').toLowerCase() === u.email.toLowerCase())).map(m => ({ code: m.code, name: m.missionName })),
+  }));
+  res.json({ users: enriched });
+});
+
+// Ajouter un utilisateur
+app.post('/api/users', (req, res) => {
+  const { email, nom, type, role } = req.body;
+  if (!email || !nom) return res.status(400).json({ error: 'email et nom requis' });
+  const users = loadUsers();
+  const emailLow = email.toLowerCase().trim();
+  if (users.find(u => u.email.toLowerCase() === emailLow)) return res.status(400).json({ error: 'Email deja inscrit' });
+  const userType = type || role || 'Auditeur';
+  users.push({ email: emailLow, nom: nom.trim(), type: userType, role: userType, actif: true, missions: [], createdAt: new Date().toISOString() });
+  saveUsers(users);
+  console.log('[USER AJOUTE] ' + emailLow + ' — ' + nom + ' [' + userType + ']');
+  res.json({ success: true });
+});
+
+// Modifier un utilisateur (type, nom, actif)
+app.patch('/api/users/:email', (req, res) => {
+  const users = loadUsers();
+  const emailLow = req.params.email.toLowerCase();
+  const u = users.find(u => u.email.toLowerCase() === emailLow);
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  const { nom, type, actif } = req.body;
+  if (nom !== undefined) u.nom = nom;
+  if (type !== undefined) { u.type = type; u.role = type; }
+  if (actif !== undefined) u.actif = actif;
+  u.updatedAt = new Date().toISOString();
+  saveUsers(users);
+  console.log('[USER MODIFIE] ' + emailLow + ' => ' + JSON.stringify({nom,type,actif}));
+  res.json({ success: true, user: u });
+});
+
+// Supprimer un utilisateur
+app.delete('/api/users/:email', (req, res) => {
+  const before = loadUsers();
+  const after = before.filter(u => u.email.toLowerCase() !== req.params.email.toLowerCase());
+  if (before.length === after.length) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  saveUsers(after);
+  console.log('[USER SUPPRIME] ' + req.params.email);
+  res.json({ success: true });
+});
+
+// Verifier si email autorise
+app.post('/api/users/verify', (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ valid: false, error: 'Email requis' });
+  const users = loadUsers();
+  const u = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim() && u.actif);
+  if (!u) return res.json({ valid: false, error: 'Email non autorise. Contactez l\'administrateur.' });
+  res.json({ valid: true, nom: u.nom, type: u.type, role: u.role });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// API MISSIONS
+// ═══════════════════════════════════════════════════════════════
+
+// Creer une mission
 app.post('/api/mission/create', (req, res) => {
-  const { missionName, userName, customCode } = req.body;
+  const { missionName, userName, userEmail, customCode, licenseCode } = req.body;
   if (!missionName || !userName) return res.status(400).json({ error: 'Champs requis manquants' });
+
+  // Verifier la licence
+  if (licenseCode) {
+    const licenses = loadLicenses();
+    const lic = licenses.find(l => l.code.toUpperCase() === licenseCode.trim().toUpperCase() && l.actif);
+    if (!lic) return res.status(403).json({ error: 'Code de licence invalide' });
+    if (lic.uses >= lic.maxUses) return res.status(403).json({ error: 'Licence expiree' });
+    lic.uses++;
+    saveLicenses(licenses);
+  }
 
   let code = customCode
     ? customCode.toUpperCase().replace(/[^A-Z0-9\-]/g, '')
@@ -136,9 +324,9 @@ app.post('/api/mission/create', (req, res) => {
   if (missions[code]) return res.status(400).json({ error: 'Ce code existe deja' });
 
   missions[code] = {
-    code,
-    missionName,
-    createdBy: userName,          // ← nom du créateur
+    code, missionName,
+    createdBy: userName,
+    createdByEmail: userEmail || '',
     createdAt: new Date().toISOString(),
     lastUpdate: new Date().toISOString(),
     auditData: {
@@ -149,29 +337,75 @@ app.post('/api/mission/create', (req, res) => {
       controls:{ tests:[], deficiences:[] },
       report:{ synthese:'', constats:[], recommandations:[], conclusion:'' },
       conversations:{ messages:[] },
-      // journal des connexions locales (utile pour rapports)
-      connectionLogs: []
+      notes:[], connectionLogs:[]
     }
   };
   saveMissions(missions);
-  console.log(`[MISSION CREEE] ${code} — ${missionName} par ${userName}`);
+  // Enregistrer automatiquement le créateur dans users.json
+  if (userEmail) upsertUser(userEmail, userName, 'Createur');
+  console.log('[MISSION CREEE] ' + code + ' par ' + userName + ' (' + (userEmail||'') + ')');
   res.json({ success: true, code, missionName, createdBy: userName });
 });
 
-// ─── API : VERIFIER CODE ──────────────────────────────────────
+// Verifier acces a une mission — connexion par EMAIL uniquement
 app.post('/api/mission/verify', (req, res) => {
-  const { code, name } = req.body;
+  const { code, email } = req.body;
+  if (!code || !email) return res.json({ success: false, error: 'Code de mission et email requis' });
+
   const mission = missions[code];
   if (!mission) return res.json({ success: false, error: 'Code de mission invalide ou inexistant' });
-  const isCreator = mission.createdBy === name;
-  res.json({ success: true, missionName: mission.missionName, createdBy: mission.createdBy, isCreator, createdAt: mission.createdAt });
+
+  const emailLow = email.toLowerCase().trim();
+
+  // Verifier dans users.json (accepte "role" ET "type" pour compatibilite)
+  const users = loadUsers();
+  const globalUser = users.find(u => u.email.toLowerCase() === emailLow && u.actif);
+  if (!globalUser) {
+    console.log('[ACCES REFUSE] Email absent de users.json: ' + emailLow);
+    return res.json({ success: false, error: 'Email non autorisé. Demandez à l\'administrateur de vous inscrire dans la base des auditeurs.' });
+  }
+
+  // Normaliser : lire "type" ou "role" (les deux sont valides)
+  const userType = (globalUser.type || globalUser.role || 'Auditeur').toLowerCase();
+  const isCreatorByUsers = userType === 'createur' || userType === 'créateur' || userType === 'creator';
+
+  // Verifier si createur : par createdByEmail de la mission OU par type dans users.json
+  const isCreatorByMission = (mission.createdByEmail || '').toLowerCase() === emailLow;
+  const isCreator = isCreatorByMission || isCreatorByUsers;
+
+  if (isCreator) {
+    // Si createdByEmail était vide, le mettre a jour maintenant
+    if (!mission.createdByEmail && isCreatorByUsers) {
+      mission.createdByEmail = emailLow;
+      mission.createdBy = globalUser.nom || emailLow.split('@')[0];
+      saveMissions(missions);
+      console.log('[MISSION] createdByEmail mis a jour: ' + emailLow + ' => ' + code);
+    }
+    const userName = globalUser.nom || mission.createdBy || emailLow.split('@')[0];
+    upsertUser(emailLow, userName, 'Createur');
+    console.log('[ACCES OK] ' + emailLow + ' => mission ' + code + ' [CREATEUR]');
+    return res.json({ success: true, missionName: mission.missionName, createdBy: mission.createdBy || userName, isCreator: true, userName, createdAt: mission.createdAt });
+  }
+
+  // Verifier que l'email est dans l'equipe de cette mission
+  const equipe = (mission.auditData && mission.auditData.perimeter && mission.auditData.perimeter.equipe) || [];
+  const membreEquipe = equipe.find(mb => mb.email && mb.email.toLowerCase().trim() === emailLow);
+  if (!membreEquipe) {
+    console.log('[ACCES REFUSE] Email absent de l\'equipe mission: ' + emailLow + ' code:' + code);
+    return res.json({ success: false, error: 'Email non inscrit dans cette mission. Le créateur doit vous ajouter dans Périmètre → Équipe.' });
+  }
+
+  const userName = globalUser.nom || membreEquipe.nom || emailLow.split('@')[0];
+  upsertUser(emailLow, userName, 'Auditeur');
+  console.log('[ACCES OK] ' + emailLow + ' => mission ' + code + ' (auditeur)');
+  res.json({ success: true, missionName: mission.missionName, createdBy: mission.createdBy, isCreator: false, userName, createdAt: mission.createdAt });
 });
 
-// ─── API : CHARGER UNE MISSION ────────────────────────────────
+// Charger une mission
 app.get('/api/mission/:code', (req, res) => {
   const mission = missions[req.params.code];
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
-  // ensure every saved message has a channel (migrating old data)
+  // Migration : s assurer que chaque message a un channel
   if (mission.auditData && mission.auditData.conversations && Array.isArray(mission.auditData.conversations.messages)) {
     mission.auditData.conversations.messages = mission.auditData.conversations.messages.map(m => {
       if (!m.channel) m.channel = 'general';
@@ -179,13 +413,12 @@ app.get('/api/mission/:code', (req, res) => {
     });
   }
   res.json({
-    success: true,
-    auditData: mission.auditData,
+    success: true, auditData: mission.auditData,
     meta: { missionName: mission.missionName, createdBy: mission.createdBy, createdAt: mission.createdAt, lastUpdate: mission.lastUpdate }
   });
 });
 
-// ─── API : SAUVEGARDER (sauvegarde complète) ─────────────────
+// Sauvegarder
 app.post('/api/mission/:code/save', (req, res) => {
   const mission = missions[req.params.code];
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
@@ -193,71 +426,54 @@ app.post('/api/mission/:code/save', (req, res) => {
   missions[req.params.code].auditData = auditData;
   missions[req.params.code].lastUpdate = new Date().toISOString();
   saveMissions(missions);
-  // Notifier les autres connectés
   io.to(req.params.code).emit('full-sync', { auditData, savedBy, timestamp: new Date().toISOString() });
   res.json({ success: true });
 });
 
-// ─── API : MISE A JOUR TEMPS REEL (un seul champ) ─────────────
-// Utilisé par Socket.IO uniquement — pas de route HTTP
-
-// ─── API : SUPPRIMER MISSION (créateur seulement) ─────────────
+// Supprimer mission
 app.delete('/api/mission/:code', (req, res) => {
-  const { userName } = req.body;
+  const { userEmail } = req.body;
   const mission = missions[req.params.code];
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
-  if (mission.createdBy !== userName) {
+  const emailLow = (userEmail || '').toLowerCase().trim();
+  if ((mission.createdByEmail || '').toLowerCase() !== emailLow) {
     return res.status(403).json({ error: 'Seul le createur peut supprimer cette mission' });
   }
-  // Supprimer les fichiers uploadés
   const uploadDir = path.join(UPLOADS_DIR, req.params.code);
-  if (fs.existsSync(uploadDir)) {
-    fs.rmSync(uploadDir, { recursive: true, force: true });
-  }
+  if (fs.existsSync(uploadDir)) fs.rmSync(uploadDir, { recursive: true, force: true });
   delete missions[req.params.code];
   saveMissions(missions);
-  // Expulser tous les connectés
-  io.to(req.params.code).emit('mission-deleted', { by: userName });
-  console.log(`[MISSION SUPPRIMEE] ${req.params.code} par ${userName}`);
+  io.to(req.params.code).emit('mission-deleted', { by: mission.createdBy });
+  console.log('[MISSION SUPPRIMEE] ' + req.params.code);
   res.json({ success: true });
 });
 
-
-// ─── API : CHANGER LE CODE D'ACCÈS ────────────────────────────
+// Changer le code d acces
 app.post('/api/mission/:code/change-code', (req, res) => {
-  const { newCode, userName } = req.body;
+  const { newCode, userEmail, userName } = req.body;
   const oldCode = req.params.code;
   const mission = missions[oldCode];
-
   if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
-  if (mission.createdBy !== userName) {
-    return res.status(403).json({ error: "Seul le createur peut modifier le code d'acces" });
+
+  const emailLow = (userEmail || '').toLowerCase().trim();
+  const creatorEmail = (mission.createdByEmail || '').toLowerCase();
+  if (creatorEmail && creatorEmail !== emailLow) {
+    return res.status(403).json({ error: 'Seul le createur peut modifier le code' });
   }
-  if (!newCode || newCode.trim().length < 6) {
-    return res.status(400).json({ error: 'Le nouveau code doit faire au moins 6 caractères' });
-  }
+  if (!newCode || newCode.trim().length < 6) return res.status(400).json({ error: 'Code trop court (min 6 caracteres)' });
 
   const formatted = newCode.toUpperCase().replace(/[^A-Z0-9\-]/g, '').substring(0, 11);
+  if (missions[formatted] && formatted !== oldCode) return res.status(400).json({ error: 'Code deja utilise' });
 
-  if (missions[formatted] && formatted !== oldCode) {
-    return res.status(400).json({ error: 'Ce code est déjà utilisé par une autre mission' });
-  }
-
-  // Copier la mission avec le nouveau code
   missions[formatted] = { ...mission, code: formatted, lastUpdate: new Date().toISOString() };
-  if (formatted !== oldCode) {
-    delete missions[oldCode];
-  }
+  if (formatted !== oldCode) delete missions[oldCode];
   saveMissions(missions);
-
-  // Notifier tous les connectés de l'ancien code que le code a changé
-  io.to(oldCode).emit('code-changed', { newCode: formatted, by: userName });
-
-  console.log(`[CODE MODIFIE] ${oldCode} → ${formatted} par ${userName}`);
+  io.to(oldCode).emit('code-changed', { newCode: formatted, by: userName || 'Createur' });
+  console.log('[CODE MODIFIE] ' + oldCode + ' => ' + formatted);
   res.json({ success: true, newCode: formatted, oldCode });
 });
 
-// ─── API : LISTER MISSIONS ────────────────────────────────────
+// Lister les missions
 app.get('/api/missions', (req, res) => {
   const list = Object.values(missions).map(m => ({
     code: m.code, missionName: m.missionName, createdBy: m.createdBy,
@@ -265,6 +481,37 @@ app.get('/api/missions', (req, res) => {
     online: getUsersInMission(m.code).length
   }));
   res.json({ missions: list });
+});
+
+// Rapport de connexions
+app.get('/api/mission/:code/logs', (req, res) => {
+  const mission = missions[req.params.code];
+  if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
+  const logs = (mission.auditData && mission.auditData.connectionLogs) || [];
+  const format = req.query.format || 'json';
+
+  // Enrichir les logs
+  const enriched = logs.map(l => {
+    const join = new Date(l.join);
+    const leave = l.leave ? new Date(l.leave) : new Date();
+    const durSec = Math.round((leave - join) / 1000);
+    const hrs = Math.floor(durSec / 3600);
+    const mins = Math.floor((durSec % 3600) / 60);
+    const secs = durSec % 60;
+    const durText = (hrs > 0 ? hrs + 'h ' : '') + (mins > 0 ? mins + 'm ' : '') + secs + 's';
+    return { userName: l.userName, userEmail: l.userEmail || '', join: l.join, leave: l.leave || null, durationSeconds: durSec, durationText: durText.trim() };
+  });
+
+  if (format === 'csv') {
+    const lines = ['Auditeur,Email,Connexion,Deconnexion,Duree(sec),Duree'];
+    enriched.forEach(l => lines.push(
+      '"' + l.userName + '","' + l.userEmail + '","' + l.join + '","' + (l.leave||'En cours') + '",' + l.durationSeconds + ',"' + l.durationText + '"'
+    ));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="logs_' + req.params.code + '.csv"');
+    return res.send('\uFEFF' + lines.join('\n')); // BOM UTF-8
+  }
+  res.json({ logs: enriched });
 });
 
 // ─── UPLOAD FICHIERS ──────────────────────────────────────────
@@ -288,49 +535,13 @@ app.post('/api/upload', upload.array('files', 20), (req, res) => {
   const code = req.body.missionCode || 'general';
   const files = req.files.map(f => ({
     name: f.originalname, filename: f.filename, size: f.size, mimetype: f.mimetype,
-    url: `http://${ip}:${PORT}/uploads/${code}/${f.filename}`,
+    url: 'http://' + ip + ':' + PORT + '/uploads/' + code + '/' + f.filename,
     uploadedAt: new Date().toISOString(), uploadedBy: req.body.user || 'Auditeur'
   }));
   res.json({ success: true, files });
 });
 
-// ─── RAPPORT DE CONNEXIONS ─────────────────────────────────
-app.get('/api/mission/:code/logs', (req, res) => {
-  const mission = missions[req.params.code];
-  if (!mission) return res.status(404).json({ error: 'Mission introuvable' });
-  const logs = mission.auditData.connectionLogs || [];
-  const format = req.query.format || 'csv';
-  if (format === 'json') {
-    // enrich with durations and human text
-    const enriched = logs.map(l => {
-      const join = new Date(l.join);
-      const leave = l.leave ? new Date(l.leave) : new Date();
-      const durSec = Math.round((leave - join) / 1000);
-      let text = '';
-      const hrs = Math.floor(durSec / 3600);
-      const mins = Math.floor((durSec % 3600) / 60);
-      const days = Math.floor(hrs / 24);
-      if (days) text += days + 'j ';
-      if (hrs % 24) text += (hrs % 24) + 'h ';
-      if (mins) text += mins + 'm';
-      if (!text) text = durSec + 's';
-      return { userName: l.userName, join: l.join, leave: l.leave, durationSeconds: durSec, durationText: text.trim() };
-    });
-    return res.json({ logs: enriched });
-  }
-  // csv/text
-  const lines = ['userName,join,leave,durationSeconds'];
-  logs.forEach(l => {
-    const join = new Date(l.join);
-    const leave = l.leave ? new Date(l.leave) : new Date();
-    const dur = Math.round((leave - join) / 1000);
-    lines.push(`${l.userName},${l.join},${l.leave || ''},${dur}`);
-  });
-  res.setHeader('Content-Type', 'text/csv');
-  res.send(lines.join('\n'));
-});
-
-// ─── SPA FALLBACK (pour le build Vite) ───────────────────────
+// ─── SPA FALLBACK ────────────────────────────────────────────
 app.get('*', (req, res) => {
   const indexHtml = path.join(BUILD_DIR, 'index.html');
   if (fs.existsSync(indexHtml)) return res.sendFile(indexHtml);
@@ -338,45 +549,37 @@ app.get('*', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// SOCKET.IO — TEMPS REEL
+// SOCKET.IO
 // ═══════════════════════════════════════════════════════════════
 io.on('connection', (socket) => {
 
-  // Rejoindre une mission
-  socket.on('join', ({ missionCode, userName, isCreator }) => {
+  socket.on('join', ({ missionCode, userName, userEmail, isCreator }) => {
     socket.join(missionCode);
-    connectedUsers[socket.id] = { userName, missionCode, isCreator: !!isCreator };
+    connectedUsers[socket.id] = { userName, userEmail: userEmail||'', missionCode, isCreator: !!isCreator };
 
-    // ajouter une entrée dans le journal de connexions
+    // Journal de connexion
     if (missions[missionCode] && missions[missionCode].auditData) {
-      if (!missions[missionCode].auditData.connectionLogs) {
-        missions[missionCode].auditData.connectionLogs = [];
-      }
-      missions[missionCode].auditData.connectionLogs.push({ userName, join: new Date().toISOString(), leave: null });
+      if (!missions[missionCode].auditData.connectionLogs) missions[missionCode].auditData.connectionLogs = [];
+      missions[missionCode].auditData.connectionLogs.push({ userName, userEmail: userEmail||'', isCreator: !!isCreator, join: new Date().toISOString(), leave: null });
       missions[missionCode].lastUpdate = new Date().toISOString();
       saveMissions(missions);
     }
 
     const users = getUsersInMission(missionCode);
-    // Notifier tout le monde dans la mission
     io.to(missionCode).emit('users-update', users);
     socket.to(missionCode).emit('user-joined', { name: userName, time: new Date().toISOString() });
-    console.log(`[CONNECTE] ${userName} → mission ${missionCode} (${users.length} connectes)`);
+    const role = isCreator ? '[CREATEUR]' : '[AUDITEUR]';
+    console.log('[CONNECTE] ' + role + ' ' + userName + ' <' + (userEmail||'?') + '> => mission ' + missionCode + ' (' + users.length + ' en ligne)');
   });
 
-  // Mise à jour d'un champ unique (temps réel)
   socket.on('field-update', ({ missionCode, path: fieldPath, value, userName }) => {
-    // path = ex: "perimeter.entite" ou "risks" (tableau complet)
     if (missions[missionCode]) {
-      // Appliquer la mise à jour dans le store serveur
       applyFieldUpdate(missions[missionCode].auditData, fieldPath, value);
       missions[missionCode].lastUpdate = new Date().toISOString();
-      // Broadcast aux autres dans la mission
       socket.to(missionCode).emit('field-updated', { path: fieldPath, value, by: userName, at: new Date().toISOString() });
     }
   });
 
-  // Mise à jour d'une section complète (tableaux)
   socket.on('section-update', ({ missionCode, section, data, userName }) => {
     if (missions[missionCode]) {
       missions[missionCode].auditData[section] = data;
@@ -385,88 +588,87 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Sauvegarde déclenchée par le client
   socket.on('save-request', ({ missionCode, auditData, userName }) => {
-    if (!missions[missionCode]) return;
+    if (!missions[missionCode]) {
+      console.warn('[SAVE-REQUEST] Mission not found:', missionCode);
+      return;
+    }
     missions[missionCode].auditData = auditData;
     missions[missionCode].lastUpdate = new Date().toISOString();
     saveMissions(missions);
     io.to(missionCode).emit('saved', { by: userName, at: new Date().toISOString() });
-    console.log(`[SAUVEGARDE] Mission ${missionCode} par ${userName}`);
+    const msgCount = auditData?.conversations?.messages?.length || 0;
+    console.log('[SAUVEGARDE] ' + missionCode + ' par ' + userName + ' (' + msgCount + ' messages)');
   });
 
-  // Chat temps réel
+  // Chat
   socket.on('chat-send', (msg, ack) => {
-    if (!msg || !msg.missionCode) {
-      if (ack) ack({ success: false, error: 'Message invalide' });
-      return;
-    }
-    // make sure there is always a channel (old clients might not send one)
+    if (!msg || !msg.missionCode) { if (ack) ack({ success: false }); return; }
     if (!msg.channel) msg.channel = 'general';
-    // Assurer un ID unique pour chaque message
     if (!msg.id) msg.id = Date.now() + Math.random();
-    
-    // Sauvegarder le message dans auditData si ce n'est pas un doublon
+
     if (missions[msg.missionCode] && missions[msg.missionCode].auditData) {
-      if (!missions[msg.missionCode].auditData.conversations) {
-        missions[msg.missionCode].auditData.conversations = { messages: [] };
-      }
+      if (!missions[msg.missionCode].auditData.conversations) missions[msg.missionCode].auditData.conversations = { messages: [] };
       const msgs = missions[msg.missionCode].auditData.conversations.messages;
       if (!msgs.some(m => m.id === msg.id)) {
         msgs.push(msg);
         missions[msg.missionCode].lastUpdate = new Date().toISOString();
         saveMissions(missions);
-      } else {
-        console.log(`[CHAT] Duplicate message ${msg.id} ignored`);
+        console.log('[CHAT-SAVE] Message saved for', msg.missionCode, '| Total messages:', msgs.length);
       }
+    } else {
+      console.warn('[CHAT-SEND] Mission auditData not found for:', msg.missionCode);
     }
-    // Broadcast à TOUS les membres de la mission (y compris l'émetteur)
-    io.to(msg.missionCode).emit('chat-message', msg);
-    const rooms = [...socket.rooms];
-    console.log(`[CHAT] ${msg.auteur} → canal:${msg.channel} mission:${msg.missionCode} rooms:[${rooms.join(',')}]`);
+
+    if (msg.channel === 'general') {
+      // Envoyer aux AUTRES seulement (l'expediteur a deja ajoute localement)
+      socket.to(msg.missionCode).emit('chat-message', msg);
+    } else {
+      // Message privé : envoyer AU DESTINATAIRE seulement
+      // L'expéditeur a déjà le message localement (setChatMessages dans sendMsg)
+      const target = msg.channel;
+      Object.entries(connectedUsers).forEach(([sockId, u]) => {
+        if (u.missionCode === msg.missionCode && u.userName === target) {
+          io.to(sockId).emit('chat-message', msg);
+        }
+      });
+    }
+    console.log('[CHAT] ' + msg.auteur + ' => ' + msg.channel + ' | ' + msg.missionCode);
     if (ack) ack({ success: true });
   });
 
-  // Suppression d'un message
   socket.on('chat-delete', (data, ack) => {
     const { missionCode, messageId } = data;
-    if (!missionCode || !messageId) {
-      if (ack) ack({ success: false, error: 'Données invalides' });
-      return;
-    }
-    // Supprimer du serveur
+    if (!missionCode || !messageId) { if (ack) ack({ success: false }); return; }
     if (missions[missionCode] && missions[missionCode].auditData && missions[missionCode].auditData.conversations) {
-      const messages = missions[missionCode].auditData.conversations.messages;
-      const idx = messages.findIndex(m => m.id === messageId);
+      const msgs = missions[missionCode].auditData.conversations.messages;
+      const idx = msgs.findIndex(m => m.id === messageId);
       if (idx >= 0) {
-        messages.splice(idx, 1);
+        msgs.splice(idx, 1);
         missions[missionCode].lastUpdate = new Date().toISOString();
         saveMissions(missions);
-        // Notifier tous les connectés
         io.to(missionCode).emit('chat-deleted', { messageId });
-        console.log(`[CHAT DELETE] Message ${messageId} supprimé`);
       }
     }
     if (ack) ack({ success: true });
   });
 
-  // Typing indicator
   socket.on('chat-typing', (data) => {
-    let { missionCode, channel, userName, isTyping } = data;
-    console.log('[SERVER chat-typing]', data);
-    channel = channel || 'general';
-    // Envoyer à TOUS dans la mission SAUF l'émetteur
-    console.log('[SERVER emit user-typing] broadcast to room:', missionCode, 'data:', { channel, userName, isTyping });
-    socket.to(missionCode).emit('user-typing', { channel, userName, isTyping });
+    const { missionCode, channel, userName, isTyping } = data;
+    socket.to(missionCode).emit('user-typing', { channel: channel || 'general', userName, isTyping });
   });
-  // Déconnexion
+
+  socket.on('user-typing', (data) => {
+    const { channel, userName, isTyping, missionCode } = data;
+    if (!missionCode) return;
+    socket.to(missionCode).emit('user-typing', { channel: channel || 'general', userName, isTyping });
+  });
+
   socket.on('disconnect', () => {
     const user = connectedUsers[socket.id];
     if (user) {
-      // enregistrer le départ dans le journal
       const code = user.missionCode;
       if (missions[code] && missions[code].auditData && Array.isArray(missions[code].auditData.connectionLogs)) {
-        // chercher la dernière entrée sans leave pour cet utilisateur
         for (let i = missions[code].auditData.connectionLogs.length - 1; i >= 0; i--) {
           const entry = missions[code].auditData.connectionLogs[i];
           if (entry.userName === user.userName && !entry.leave) {
@@ -477,17 +679,15 @@ io.on('connection', (socket) => {
         missions[code].lastUpdate = new Date().toISOString();
         saveMissions(missions);
       }
-
       delete connectedUsers[socket.id];
       const users = getUsersInMission(user.missionCode);
       io.to(user.missionCode).emit('users-update', users);
       socket.to(user.missionCode).emit('user-left', { name: user.userName, time: new Date().toISOString() });
-      console.log(`[DECONNECTE] ${user.userName} (mission ${user.missionCode})`);
+      console.log('[DECONNECTE] ' + user.userName + ' (' + code + ')');
     }
   });
 });
 
-// Appliquer une mise à jour de chemin (ex: "perimeter.entite")
 function applyFieldUpdate(obj, fieldPath, value) {
   const parts = fieldPath.split('.');
   let cur = obj;
@@ -503,17 +703,19 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   const hasBuild = fs.existsSync(BUILD_DIR);
+  const licenses = loadLicenses();
+  const users = loadUsers();
   console.log('\n╔══════════════════════════════════════════╗');
   console.log('║    AUDIT MASTER — Serveur Temps Reel     ║');
   console.log('╠══════════════════════════════════════════╣');
-  console.log(`║  Local  : http://localhost:${PORT}           ║`);
-  console.log(`║  Reseau : http://${ip}:${PORT}     ║`);
+  console.log('║  Local  : http://localhost:' + PORT + '           ║');
+  console.log('║  Reseau : http://' + ip + ':' + PORT + '     ║');
   console.log('╠══════════════════════════════════════════╣');
-  console.log(`║  Missions sauvegardees : ${Object.keys(missions).length.toString().padEnd(17)}║`);
-  console.log(`║  Build Vite : ${hasBuild ? 'dist/ present (prod OK)  ' : 'dist/ absent (mode dev)  '}║`);
-  console.log('╚══════════════════════════════════════════╝\n');
-  if (!hasBuild) {
-    console.log('  → Pour la prod: npm run build dans le frontend,');
-    console.log(`    puis copier dist/ dans ce dossier server/\n`);
-  }
+  console.log('║  Missions    : ' + Object.keys(missions).length.toString().padEnd(26) + '║');
+  console.log('║  Auditeurs   : ' + users.length.toString().padEnd(26) + '║');
+  console.log('║  Licences    : ' + licenses.filter(l=>l.actif).length.toString().padEnd(26) + '║');
+  console.log('║  Build Vite  : ' + (hasBuild ? 'dist/ OK (prod)          ' : 'absent (mode dev)        ') + '║');
+  console.log('╚══════════════════════════════════════════╝');
+  console.log('\n  Auditeurs : data/users.json');
+  console.log('  Licences  : data/licenses.json\n');
 });
