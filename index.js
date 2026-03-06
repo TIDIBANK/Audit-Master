@@ -26,15 +26,9 @@ function isLocalOrigin(origin) {
 }
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (isLocalOrigin(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*',
   methods: ['GET','POST','DELETE','PUT','PATCH'],
-  credentials: true,
+  credentials: false,
   allowedHeaders: ['Content-Type']
 };
 
